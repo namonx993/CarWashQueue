@@ -1,353 +1,1181 @@
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.time.LocalDate;
-import java.time.YearMonth;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import javax.swing.*;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.border.MatteBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumnModel;
+import javax.swing.table.TableRowSorter;
 
 /**
- * หน้าต่าง GUI: หน้าเข้าสู่ระบบ ฝั่งลูกค้า (ฟอร์มจอง ประวัติ ยกเลิก) ฝั่งเจ้าของ (รายการจอง รายได้ ตั้งราคา)
- * รับอินพุตจากผู้ใช้แล้วส่งให้ QueueManager ตัดสิน — ไม่มีกติกาธุรกิจ ไม่แตะไฟล์
+ * หน้าต่าง GUI ของระบบศูนย์บริการล้างรถ
+ *
+ * โครงสร้างไฟล์ (อ่านจากบนลงล่าง):
+ *   1. ค่าคงที่ (รหัสผ่าน ชื่อคอลัมน์ สี)
+ *   2. Constructor
+ *   3. คลาสตกแต่ง (ปุ่มโค้ง การ์ด ฯลฯ)
+ *   4. เมธอดช่วยสร้างหน้าจอ
+ *   5. หน้าเข้าสู่ระบบ
+ *   6. หน้าลูกค้า
+ *   7. หน้าเจ้าของร้าน (3 แท็บ)
+ *
+ * คลาสนี้ทำหน้าที่แค่แสดงผลและรับข้อมูลจากผู้ใช้
+ * กติกาธุรกิจทั้งหมดอยู่ใน QueueManager
  */
 public class CarWashUI extends JFrame {
-    private static final String OWNER_PASS = "aa1234";
-    private static final String PHONE_PATTERN = "\\d{9,10}";
-    private static final int BOOKING_YEARS_AHEAD = 1; // ให้เลือกปีปัจจุบัน + อีกกี่ปีข้างหน้า
-    private static final String[] BOOKING_HEADERS =
-        {"รหัส", "ชื่อ", "โทร", "ทะเบียน", "ประเภทรถ", "บริการ", "วันที่", "เวลา", "ราคา", "สถานะ"};
+
+    // ==========================================
+    // 1. ค่าคงที่
+    // ==========================================
+
+    private static final String OWNER_PASSWORD = "1234";
+    private static final String ALL = "ทั้งหมด"; // ตัวเลือก "ทุกสถานะ" ในช่องกรอง
+
+    // หัวตารางการจอง (ลำดับต้องตรงกับ CUSTOMER.toRow())
+    private static final String[] COLUMNS = {
+            "รหัส", "ชื่อ", "โทร", "ทะเบียน", "ประเภทรถ", "บริการ", "วันที่", "เวลา", "ราคา", "สถานะ"};
+    private static final int COL_ID = 0;
+    private static final int COL_NAME = 1;
+    private static final int COL_PHONE = 2;
+    private static final int COL_STATUS = 9;
+
+    // สีหลักของโปรแกรม
+    private static final Color NAVY = new Color(0x0F172A);
+    private static final Color SLATE = new Color(0x334155);
+    private static final Color BLUE = new Color(0x2563EB);
+    private static final Color SKY = new Color(0x38BDF8);
+    private static final Color BG = new Color(0xF1F5F9);
+    private static final Color LINE = new Color(0xE2E8F0);
+    private static final Color TEXT = new Color(0x1E293B);
+    private static final Color MUTED = new Color(0x64748B);
+    private static final Color GREEN = new Color(0x16A34A);
+    private static final Color RED = new Color(0xDC2626);
+    private static final Color AMBER = new Color(0xD97706);
 
     private final QueueManager qm;
     private final JPanel root = new JPanel(new BorderLayout());
 
+    // ==========================================
+    // 2. Constructor
+    // ==========================================
+
     public CarWashUI(QueueManager qm) {
         super("ระบบศูนย์บริการล้างรถ");
         this.qm = qm;
+
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(960, 560);
+        setSize(1100, 700);
+        setMinimumSize(new Dimension(1000, 620));
         setLocationRelativeTo(null);
+
+        root.setBackground(BG);
         setContentPane(root);
-        showPanel(loginPanel());
+        showScreen(buildLoginScreen()); // เริ่มที่หน้าเข้าสู่ระบบ
     }
 
-    // ================= ตัวช่วยทั่วไป =================
+    // ==========================================
+    // 3. คลาสตกแต่ง (ไม่มีตรรกะของระบบ)
+    // ==========================================
 
-    private void warn(String message) {
+    /** ปุ่มมุมโค้ง เปลี่ยนสีเข้มขึ้นเมื่อเมาส์ชี้ */
+    private static class RoundButton extends JButton {
+        private final Color color;
+        private boolean hovered = false;
+
+        RoundButton(String text, Color color) {
+            super(text);
+            this.color = color;
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setForeground(Color.WHITE);
+            setFont(getFont().deriveFont(Font.BOLD));
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setBorder(new EmptyBorder(9, 18, 9, 18));
+
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseEntered(MouseEvent e) { hovered = true; repaint(); }
+                @Override public void mouseExited(MouseEvent e) { hovered = false; repaint(); }
+            });
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            if (!isEnabled()) g2.setColor(new Color(0xCBD5E1));
+            else if (hovered) g2.setColor(color.darker());
+            else g2.setColor(color);
+
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+            g2.dispose();
+            super.paintComponent(g);
+        }
+    }
+
+    /** การ์ดสีขาว มุมโค้ง มีเส้นขอบบาง */
+    private static class Card extends JPanel {
+        Card(LayoutManager layout) {
+            super(layout);
+            setOpaque(false);
+            setBorder(new EmptyBorder(18, 18, 18, 18));
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(Color.WHITE);
+            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+            g2.setColor(LINE);
+            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 16, 16);
+            g2.dispose();
+            super.paintComponent(g);
+        }
+    }
+
+    /** แผงเรียงของจากบนลงล่าง ยืดเต็มความกว้าง (ใช้ put เพิ่มของทีละชิ้น) */
+    private static class VerticalStack extends JPanel {
+        private final GridBagConstraints rules = new GridBagConstraints();
+        private final int minWidth;
+
+        VerticalStack(int minWidth) {
+            super(new GridBagLayout());
+            this.minWidth = minWidth;
+            setOpaque(false);
+            rules.gridx = 0;
+            rules.gridy = 0;
+            rules.weightx = 1;
+            rules.fill = GridBagConstraints.HORIZONTAL;
+            rules.anchor = GridBagConstraints.NORTH;
+            rules.insets = new Insets(0, 0, 12, 0); // ช่องว่างใต้แต่ละชิ้น
+        }
+
+        VerticalStack put(JComponent item) {
+            add(item, rules);
+            rules.gridy++; // ชิ้นถัดไปอยู่แถวถัดไป
+            return this;
+        }
+
+        @Override public Dimension getPreferredSize() {
+            Dimension size = super.getPreferredSize();
+            return new Dimension(Math.max(size.width, minWidth), size.height);
+        }
+    }
+
+    /** พื้นหลังไล่สีพร้อมวงกลมตกแต่ง (ฝั่งซ้ายของหน้าเข้าสู่ระบบ) */
+    private static class BrandBackground extends JPanel {
+        BrandBackground() {
+            super(new GridBagLayout());
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            g2.setPaint(new GradientPaint(0, 0, BLUE, getWidth(), getHeight(), NAVY));
+            g2.fillRect(0, 0, getWidth(), getHeight());
+
+            g2.setColor(new Color(255, 255, 255, 24)); // ขาวโปร่งใส
+            g2.fillOval(-90, -90, 320, 320);
+            g2.fillOval(getWidth() - 170, getHeight() - 210, 340, 340);
+            g2.fillOval(getWidth() / 2 + 40, 60, 100, 100);
+            g2.fillOval(40, getHeight() - 140, 70, 70);
+            g2.dispose();
+        }
+    }
+
+    /** วาดเซลล์ตาราง: สลับสีแถว ราคาชิดขวา สถานะมีสี */
+    private static class CellRenderer extends DefaultTableCellRenderer {
+        @Override public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean selected, boolean focused, int row, int column) {
+            super.getTableCellRendererComponent(table, value, selected, false, row, column);
+
+            setBorder(new EmptyBorder(0, 10, 0, 10));
+            setForeground(TEXT);
+            if (!selected) {
+                setBackground(row % 2 == 0 ? Color.WHITE : new Color(0xF8FAFC));
+            }
+
+            String columnName = table.getColumnName(column);
+
+            if (columnName.equals("ราคา")) {
+                setHorizontalAlignment(RIGHT);
+                if (value instanceof Number) {
+                    setText(String.format("%,d", ((Number) value).intValue()));
+                }
+            } else {
+                setHorizontalAlignment(LEFT);
+            }
+
+            if (columnName.equals("สถานะ")) {
+                setFont(getFont().deriveFont(Font.BOLD));
+                String status = String.valueOf(value);
+                if (status.equals(QueueManager.DONE)) setForeground(GREEN);
+                else if (status.equals(QueueManager.CANCEL)) setForeground(RED);
+                else setForeground(AMBER);
+            }
+            return this;
+        }
+    }
+
+    /** วาดหัวตาราง */
+    private static class HeaderRenderer extends DefaultTableCellRenderer {
+        @Override public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean selected, boolean focused, int row, int column) {
+            super.getTableCellRendererComponent(table, value, false, false, row, column);
+            setBackground(LINE);
+            setForeground(SLATE);
+            setFont(getFont().deriveFont(Font.BOLD));
+            setBorder(new EmptyBorder(0, 10, 0, 10));
+            setHorizontalAlignment("ราคา".equals(String.valueOf(value)) ? RIGHT : LEFT);
+            return this;
+        }
+    }
+
+    // ==========================================
+    // 4. เมธอดช่วยสร้างหน้าจอ
+    // ==========================================
+
+    // ---------- กล่องข้อความ / เปลี่ยนหน้า ----------
+
+    private void showWarning(String message) {
         JOptionPane.showMessageDialog(this, message, "แจ้งเตือน", JOptionPane.WARNING_MESSAGE);
     }
 
-    private void info(String message) {
+    private void showInfo(String message) {
         JOptionPane.showMessageDialog(this, message);
     }
 
-    private void showPanel(JPanel panel) {
+    /** ถามยืนยัน คืน true ถ้าผู้ใช้กด "ใช่" */
+    private boolean confirm(String message) {
+        int answer = JOptionPane.showConfirmDialog(this, message, "ยืนยัน", JOptionPane.YES_NO_OPTION);
+        return answer == JOptionPane.YES_OPTION;
+    }
+
+    /** เปลี่ยนหน้าจอทั้งหน้า */
+    private void showScreen(JPanel screen) {
         root.removeAll();
-        root.add(panel, BorderLayout.CENTER);
+        root.add(screen, BorderLayout.CENTER);
         root.revalidate();
         root.repaint();
     }
 
-    /** รันคำสั่งที่อาจ throw จาก QueueManager แล้วแจ้งเตือนข้อความผิดพลาดให้อัตโนมัติ */
-    private void attempt(Runnable action) {
-        try {
-            action.run();
-        } catch (RuntimeException ex) {
-            warn(ex.getMessage());
-        }
-    }
+    // ---------- สร้างส่วนประกอบพื้นฐาน ----------
 
-    private static JPanel labeled(String label, JComponent field) {
-        JPanel p = new JPanel(new BorderLayout(8, 0));
-        p.add(new JLabel(label), BorderLayout.WEST);
-        p.add(field, BorderLayout.CENTER);
-        return p;
-    }
-
-    private static JLabel boldLabel(String text, float size) {
+    private static JLabel createLabel(String text, float size, int style, Color color) {
         JLabel label = new JLabel(text);
-        label.setFont(label.getFont().deriveFont(Font.BOLD, size));
+        label.setFont(label.getFont().deriveFont(style, size));
+        label.setForeground(color);
         return label;
     }
 
-    private static DefaultTableModel newBookingModel() {
-        return new DefaultTableModel(BOOKING_HEADERS, 0) {
-            @Override public boolean isCellEditable(int row, int col) { return false; }
+    private static void styleTextField(JTextField field) {
+        field.setBorder(new CompoundBorder(
+                new LineBorder(new Color(0xCBD5E1), 1, true),
+                new EmptyBorder(7, 10, 7, 10)));
+        field.setForeground(TEXT);
+    }
+
+    private static JTextField createTextField(String text) {
+        JTextField field = new JTextField(text);
+        styleTextField(field);
+        return field;
+    }
+
+    private static JComboBox<String> createComboBox(String[] items) {
+        JComboBox<String> box = new JComboBox<>(items);
+        box.setBackground(Color.WHITE);
+        box.setForeground(TEXT);
+        box.setPreferredSize(new Dimension(100, 36));
+        return box;
+    }
+
+    /** ป้ายเล็กด้านบน + ช่องกรอกด้านล่าง */
+    private static JPanel withCaption(String caption, JComponent input) {
+        JPanel panel = new JPanel(new BorderLayout(0, 4));
+        panel.setOpaque(false);
+        panel.add(createLabel(caption, 12f, Font.PLAIN, MUTED), BorderLayout.NORTH);
+        panel.add(input, BorderLayout.CENTER);
+        return panel;
+    }
+
+    /** ห่อเนื้อหาด้วยพื้นหลังเทาและขอบรอบ ๆ */
+    private static JPanel createPage(JComponent content) {
+        JPanel page = new JPanel(new BorderLayout());
+        page.setBackground(BG);
+        page.setBorder(new EmptyBorder(20, 20, 20, 20));
+        page.add(content, BorderLayout.CENTER);
+        return page;
+    }
+
+    private static JScrollPane createScrollPane(JComponent content) {
+        JScrollPane scrollPane = new JScrollPane(content);
+        scrollPane.setBorder(new LineBorder(LINE));
+        scrollPane.getViewport().setBackground(Color.WHITE);
+        return scrollPane;
+    }
+
+    /** วางปุ่มชิดขวา */
+    private static JPanel rightAligned(JComponent button) {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        row.setOpaque(false);
+        row.add(button);
+        return row;
+    }
+
+    /** แถบหัวสีกรมท่า: ชื่อ+คำอธิบายทางซ้าย, เมนูตรงกลาง (ไม่ใส่ก็ได้), ปุ่มทางขวา */
+    private static JPanel createHeader(String title, String subtitle, JComponent center, JComponent right) {
+        JPanel titles = new JPanel(new GridLayout(0, 1));
+        titles.setOpaque(false);
+        titles.add(createLabel(title, 18f, Font.BOLD, Color.WHITE));
+        titles.add(createLabel(subtitle, 12f, Font.PLAIN, new Color(0x94A3B8)));
+
+        JPanel header = new JPanel(new BorderLayout(20, 0));
+        header.setBackground(NAVY);
+        header.setBorder(new EmptyBorder(12, 24, 12, 24));
+        header.add(titles, BorderLayout.WEST);
+        if (center != null) header.add(center, BorderLayout.CENTER);
+        header.add(right, BorderLayout.EAST);
+        return header;
+    }
+
+    private JButton createLogoutButton() {
+        JButton button = new RoundButton("ออกจากระบบ", SLATE);
+        button.addActionListener(e -> showScreen(buildLoginScreen()));
+        return button;
+    }
+
+    // ---------- แท็บนำทาง ----------
+
+    private static JButton createTabButton(String text) {
+        JButton button = new JButton(text);
+        button.setContentAreaFilled(false);
+        button.setFocusPainted(false);
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.setFont(button.getFont().deriveFont(Font.BOLD));
+        return button;
+    }
+
+    /** ตั้งสีตัวอักษรและเส้นใต้ของแท็บ ตามว่ากำลังเลือกอยู่หรือไม่ */
+    private static void styleTab(JButton button, boolean active,
+                                 Color activeText, Color inactiveText, Color activeBar, Color inactiveBar) {
+        button.setForeground(active ? activeText : inactiveText);
+        button.setBorder(new CompoundBorder(
+                new MatteBorder(0, 0, 3, 0, active ? activeBar : inactiveBar),
+                new EmptyBorder(8, 14, 6, 14)));
+    }
+
+    // ---------- วันที่ ----------
+
+    /** แปลงข้อความเป็นวันที่ ถ้าผิดรูปแบบคืน null */
+    private static LocalDate parseDate(String text) {
+        try {
+            return LocalDate.parse(text.trim());
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** เลื่อนวันที่ในช่องกรอกไปข้างหน้า/ข้างหลัง (ถ้าช่องว่างหรือผิด ใช้วันนี้) */
+    private static void shiftDate(JTextField field, int days) {
+        LocalDate date = parseDate(field.getText());
+        if (date == null) date = LocalDate.now();
+        field.setText(date.plusDays(days).toString());
+    }
+
+    /** ช่องวันที่ + ปุ่ม < > สำหรับเลื่อนวัน */
+    private static JPanel createDateField(JTextField dateField) {
+        JButton previous = new RoundButton("<", MUTED);
+        JButton next = new RoundButton(">", MUTED);
+        previous.setBorder(new EmptyBorder(8, 12, 8, 12));
+        next.setBorder(new EmptyBorder(8, 12, 8, 12));
+        previous.addActionListener(e -> shiftDate(dateField, -1));
+        next.addActionListener(e -> shiftDate(dateField, 1));
+
+        JPanel buttons = new JPanel(new GridLayout(1, 2, 4, 0));
+        buttons.setOpaque(false);
+        buttons.add(previous);
+        buttons.add(next);
+
+        JPanel panel = new JPanel(new BorderLayout(6, 0));
+        panel.setOpaque(false);
+        panel.add(dateField, BorderLayout.CENTER);
+        panel.add(buttons, BorderLayout.EAST);
+        return panel;
+    }
+
+    /** เรียก action ทุกครั้งที่ข้อความในช่องเปลี่ยน */
+    private static void onTextChange(JTextField field, Runnable action) {
+        field.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { action.run(); }
+            @Override public void removeUpdate(DocumentEvent e) { action.run(); }
+            @Override public void changedUpdate(DocumentEvent e) { action.run(); }
+        });
+    }
+
+    // ---------- ตาราง ----------
+
+    /** model ตารางการจอง (แก้ไขในตารางไม่ได้) */
+    private static DefaultTableModel createBookingModel() {
+        return new DefaultTableModel(COLUMNS, 0) {
+            @Override public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+
+            @Override public Class<?> getColumnClass(int column) {
+                boolean isNumber = (column == COL_ID || column == 8); // รหัส และ ราคา
+                return isNumber ? Integer.class : String.class;
+            }
         };
     }
 
-    private static void fillTable(DefaultTableModel model, List<CUSTOMER> list) {
+    /** ล้างตารางแล้วใส่รายการจองใหม่ทั้งหมด */
+    private static void loadRows(DefaultTableModel model, List<CUSTOMER> bookings) {
         model.setRowCount(0);
-        for (CUSTOMER c : list) model.addRow(c.toRow());
+        for (CUSTOMER booking : bookings) {
+            model.addRow(booking.toRow());
+        }
     }
 
-    /** คืนรหัสของแถวที่เลือก หรือ null (พร้อมแจ้งเตือน) ถ้ายังไม่ได้เลือก */
-    private Integer selectedId(JTable table, DefaultTableModel model) {
-        int row = table.getSelectedRow();
-        if (row < 0) {
-            warn("กรุณาเลือกรายการก่อน");
+    private static void styleTable(JTable table) {
+        table.setRowHeight(34);
+        table.setShowVerticalLines(false);
+        table.setShowHorizontalLines(true);
+        table.setGridColor(LINE);
+        table.setIntercellSpacing(new Dimension(0, 1));
+        table.setSelectionBackground(new Color(0xDBEAFE));
+        table.setSelectionForeground(TEXT);
+        table.setFillsViewportHeight(true);
+
+        CellRenderer renderer = new CellRenderer();
+        table.setDefaultRenderer(Object.class, renderer);
+        table.setDefaultRenderer(String.class, renderer);
+        table.setDefaultRenderer(Integer.class, renderer);
+        table.setDefaultRenderer(Number.class, renderer);
+
+        table.getTableHeader().setReorderingAllowed(false);
+        table.getTableHeader().setPreferredSize(new Dimension(0, 36));
+        table.getTableHeader().setDefaultRenderer(new HeaderRenderer());
+    }
+
+    /** ตั้งความกว้างคอลัมน์ตามชื่อ */
+    private static void fitColumns(JTable table) {
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            int width;
+            switch (table.getColumnName(i)) {
+                case "รหัส":    width = 55;  break;
+                case "เวลา":    width = 70;  break;
+                case "ราคา":    width = 80;  break;
+                case "วันที่":   width = 100; break;
+                case "สถานะ":   width = 120; break;
+                case "ทะเบียน": width = 140; break;
+                default:        width = 120;
+            }
+            table.getColumnModel().getColumn(i).setPreferredWidth(width);
+        }
+    }
+
+    /**
+     * คืนรหัสการจองของแถวที่เลือก (ถ้าไม่ได้เลือกจะเตือนและคืน null)
+     * ต้องแปลงเลขแถวบนจอเป็นเลขแถวใน model เพราะตารางอาจถูกเรียง/กรองอยู่
+     */
+    private Integer selectedBookingId(JTable table, DefaultTableModel model) {
+        int viewRow = table.getSelectedRow();
+        if (viewRow < 0) {
+            showWarning("กรุณาเลือกรายการก่อน");
             return null;
         }
-        return (Integer) model.getValueAt(row, 0);
+        int modelRow = table.convertRowIndexToModel(viewRow);
+        return (Integer) model.getValueAt(modelRow, COL_ID);
     }
 
-    /** ตัวเลือกวันที่แบบแยก 3 ช่อง (วัน / เดือน / ปี) ค่าเริ่มต้นคือวันนี้ */
-    private static class DateSelector extends JPanel {
-        private static final String[] MONTHS =
-            {"ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."};
+    // ==========================================
+    // 5. หน้าเข้าสู่ระบบ
+    // ==========================================
 
-        private final JComboBox<Integer> day = new JComboBox<>();
-        private final JComboBox<String> month = new JComboBox<>(MONTHS);
-        private final JComboBox<Integer> year = new JComboBox<>();
-
-        DateSelector() {
-            super(new GridLayout(1, 3, 4, 0));
-            LocalDate today = LocalDate.now();
-            for (int y = today.getYear(); y <= today.getYear() + BOOKING_YEARS_AHEAD; y++) year.addItem(y);
-            month.setSelectedIndex(today.getMonthValue() - 1);
-            refreshDays();
-            day.setSelectedItem(today.getDayOfMonth());
-
-            month.addActionListener(e -> refreshDays());
-            year.addActionListener(e -> refreshDays());
-            add(day);
-            add(month);
-            add(year);
-        }
-
-        /** ปรับจำนวนวันตามเดือน/ปีที่เลือก (เช่น ก.พ. มี 28-29 วัน) และคงวันเดิมไว้ถ้ายังใช้ได้ */
-        private void refreshDays() {
-            Integer previous = (Integer) day.getSelectedItem();
-            int length = YearMonth.of((Integer) year.getSelectedItem(), month.getSelectedIndex() + 1).lengthOfMonth();
-            day.removeAllItems();
-            for (int d = 1; d <= length; d++) day.addItem(d);
-            if (previous != null) day.setSelectedItem(Math.min(previous, length));
-        }
-
-        /** คืนวันที่รูปแบบ yyyy-MM-dd */
-        String getDate() {
-            return LocalDate.of((Integer) year.getSelectedItem(),
-                                month.getSelectedIndex() + 1,
-                                (Integer) day.getSelectedItem()).toString();
-        }
+    /** หน้าเข้าสู่ระบบ: ซ้าย = แบรนด์, ขวา = ฟอร์ม */
+    private JPanel buildLoginScreen() {
+        JPanel screen = new JPanel(new GridLayout(1, 2));
+        screen.add(buildBrandSide());
+        screen.add(buildLoginSide());
+        return screen;
     }
 
-    // ================= หน้าเข้าสู่ระบบ =================
+    private JPanel buildBrandSide() {
+        Color bulletColor = new Color(0xDBEAFE);
 
-    private JPanel loginPanel() {
-        JTextField name = new JTextField();
-        JTextField phone = new JTextField();
-        JPasswordField pass = new JPasswordField();
-        JButton customerBtn = new JButton("เข้าใช้งานสำหรับลูกค้า");
-        JButton ownerBtn = new JButton("เข้าสู่ระบบเจ้าของ");
+        VerticalStack content = new VerticalStack(0);
+        content.setBorder(new EmptyBorder(0, 40, 0, 40));
+        content.put(createLabel("CAR WASH", 42f, Font.BOLD, Color.WHITE));
+        content.put(createLabel("ศูนย์บริการล้างรถ", 24f, Font.PLAIN, Color.WHITE));
+        content.put((JComponent) Box.createVerticalStrut(18));
+        content.put(createLabel("•  จองคิวออนไลน์ เลือกวันและเวลาได้เอง", 15f, Font.PLAIN, bulletColor));
+        content.put(createLabel("•  ราคาชัดเจน คำนวณตามประเภทรถ", 15f, Font.PLAIN, bulletColor));
+        content.put(createLabel("•  ดูช่วงเวลาว่างและยกเลิกคิวได้ทันที", 15f, Font.PLAIN, bulletColor));
 
-        JLabel title = new JLabel("ศูนย์บริการล้างรถ", SwingConstants.CENTER);
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 26f));
+        BrandBackground background = new BrandBackground();
+        background.add(content);
+        return background;
+    }
 
-        JPanel box = new JPanel(new GridLayout(0, 1, 8, 8));
-        box.add(title);
-        box.add(new JLabel("— ลูกค้า —", SwingConstants.CENTER));
-        box.add(labeled("ชื่อ", name));
-        box.add(labeled("เบอร์โทร", phone));
-        box.add(customerBtn);
-        box.add(new JLabel("— เจ้าของร้าน —", SwingConstants.CENTER));
-        box.add(labeled("รหัสผ่าน", pass));
-        box.add(ownerBtn);
-        box.setPreferredSize(new Dimension(340, 360));
+    /** ฝั่งขวา: แท็บ "ลูกค้า" / "เจ้าของร้าน" สลับฟอร์มด้วย CardLayout */
+    private JPanel buildLoginSide() {
+        CardLayout cardLayout = new CardLayout();
+        JPanel forms = new JPanel(cardLayout);
+        forms.setOpaque(false);
+        forms.add(buildCustomerLoginForm(), "customer");
+        forms.add(buildOwnerLoginForm(), "owner");
 
-        customerBtn.addActionListener(e -> {
-            String n = QueueManager.clean(name.getText());
-            String t = phone.getText().trim();
-            if (n.isEmpty() || !t.matches(PHONE_PATTERN)) warn("กรอกชื่อและเบอร์โทร 9-10 หลักให้ถูกต้อง");
-            else showPanel(customerPanel(n, t));
+        JButton customerTab = createTabButton("ลูกค้า");
+        JButton ownerTab = createTabButton("เจ้าของร้าน");
+
+        customerTab.addActionListener(e -> {
+            cardLayout.show(forms, "customer");
+            styleTab(customerTab, true, BLUE, MUTED, BLUE, LINE);
+            styleTab(ownerTab, false, BLUE, MUTED, BLUE, LINE);
         });
-        ownerBtn.addActionListener(e -> {
-            if (new String(pass.getPassword()).equals(OWNER_PASS)) showPanel(ownerPanel());
-            else warn("รหัสผ่านไม่ถูกต้อง");
+        ownerTab.addActionListener(e -> {
+            cardLayout.show(forms, "owner");
+            styleTab(customerTab, false, BLUE, MUTED, BLUE, LINE);
+            styleTab(ownerTab, true, BLUE, MUTED, BLUE, LINE);
+        });
+        customerTab.doClick(); // เริ่มต้นที่แท็บลูกค้า
+
+        JPanel tabs = new JPanel(new GridLayout(1, 2));
+        tabs.setOpaque(false);
+        tabs.add(customerTab);
+        tabs.add(ownerTab);
+
+        VerticalStack content = new VerticalStack(340);
+        content.put(createLabel("ยินดีต้อนรับ", 26f, Font.BOLD, TEXT));
+        content.put(createLabel("เลือกประเภทผู้ใช้งานเพื่อเข้าสู่ระบบ", 13f, Font.PLAIN, MUTED));
+        content.put(tabs);
+        content.put(forms);
+
+        JPanel side = new JPanel(new GridBagLayout());
+        side.setBackground(Color.WHITE);
+        side.add(content);
+        return side;
+    }
+
+    private VerticalStack buildCustomerLoginForm() {
+        JTextField nameField = createTextField("");
+        JTextField phoneField = createTextField("");
+        JButton loginButton = new RoundButton("เข้าใช้งานสำหรับลูกค้า", BLUE);
+
+        loginButton.addActionListener(e -> {
+            String name = QueueManager.clean(nameField.getText());
+            String phone = phoneField.getText().trim();
+
+            boolean phoneValid = phone.matches("\\d{9,10}"); // ตัวเลข 9-10 หลัก
+            if (name.isEmpty() || !phoneValid) {
+                showWarning("กรอกชื่อและเบอร์โทร 9-10 หลักให้ถูกต้อง");
+            } else {
+                showScreen(buildCustomerScreen(name, phone));
+            }
         });
 
-        JPanel p = new JPanel(new GridBagLayout());
-        p.add(box);
-        return p;
-    }
+        // กด Enter ในช่องชื่อ -> ไปช่องเบอร์, กด Enter ในช่องเบอร์ -> เข้าสู่ระบบ
+        nameField.addActionListener(e -> phoneField.requestFocusInWindow());
+        phoneField.addActionListener(e -> loginButton.doClick());
 
-    // ================= ฝั่งลูกค้า =================
-
-    private JPanel customerPanel(String name, String phone) {
-        DefaultTableModel model = newBookingModel();
-        Runnable refresh = () -> fillTable(model, qm.byPhone(phone));
-        refresh.run();
-
-        JPanel p = new JPanel(new BorderLayout(10, 10));
-        p.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        p.add(bookingForm(name, phone, refresh), BorderLayout.WEST);
-        p.add(historyPanel(phone, model, refresh), BorderLayout.CENTER);
-        return p;
-    }
-
-    private JPanel bookingForm(String name, String phone, Runnable refresh) {
-        JTextField plate = new JTextField();
-        JComboBox<String> car = new JComboBox<>(QueueManager.CARS);
-        JComboBox<String> service = new JComboBox<>(qm.names().toArray(new String[0]));
-        DateSelector date = new DateSelector();
-        JComboBox<String> slot = new JComboBox<>(QueueManager.SLOTS);
-        JLabel price = boldLabel("", 18f);
-        JButton bookBtn = new JButton("ยืนยันการจอง");
-        JButton logoutBtn = new JButton("ออกจากระบบ");
-
-        Runnable updatePrice = () ->
-            price.setText(qm.calc((String) service.getSelectedItem(), car.getSelectedIndex()) + " บาท");
-        car.addActionListener(e -> updatePrice.run());
-        service.addActionListener(e -> updatePrice.run());
-        updatePrice.run();
-
-        bookBtn.addActionListener(e -> attempt(() -> {
-            CUSTOMER c = qm.book(name, phone, plate.getText(), car.getSelectedIndex(),
-                    (String) service.getSelectedItem(), date.getDate(),
-                    (String) slot.getSelectedItem());
-            refresh.run();
-            info("จองสำเร็จ รหัสการจอง " + c.id);
-        }));
-        logoutBtn.addActionListener(e -> showPanel(loginPanel()));
-
-        JPanel form = new JPanel(new GridLayout(0, 1, 6, 6));
-        form.setBorder(BorderFactory.createTitledBorder("จองคิวล้างรถ  (" + name + ")"));
-        form.add(labeled("ทะเบียนรถ", plate));
-        form.add(labeled("ประเภทรถ", car));
-        form.add(labeled("บริการ", service));
-        form.add(labeled("วันที่", date));
-        form.add(labeled("เวลา", slot));
-        form.add(labeled("ค่าบริการ", price));
-        form.add(bookBtn);
-        form.add(logoutBtn);
-        form.setPreferredSize(new Dimension(320, 0));
+        VerticalStack form = new VerticalStack(0);
+        form.put(withCaption("ชื่อ", nameField));
+        form.put(withCaption("เบอร์โทร (9-10 หลัก)", phoneField));
+        form.put(loginButton);
         return form;
     }
 
-    private JPanel historyPanel(String phone, DefaultTableModel model, Runnable refresh) {
-        JTable table = new JTable(model);
-        JButton cancelBtn = new JButton("ยกเลิกการจองที่เลือก");
-        cancelBtn.addActionListener(e -> {
-            Integer id = selectedId(table, model);
-            if (id != null) attempt(() -> {
-                qm.cancelByCustomer(id, phone);
-                refresh.run();
+    private VerticalStack buildOwnerLoginForm() {
+        JPasswordField passwordField = new JPasswordField();
+        styleTextField(passwordField);
+        JButton loginButton = new RoundButton("เข้าสู่ระบบเจ้าของ", NAVY);
+
+        loginButton.addActionListener(e -> {
+            String typed = new String(passwordField.getPassword());
+            if (typed.equals(OWNER_PASSWORD)) {
+                showScreen(buildOwnerScreen());
+            } else {
+                showWarning("รหัสผ่านไม่ถูกต้อง");
+            }
+        });
+        passwordField.addActionListener(e -> loginButton.doClick());
+
+        VerticalStack form = new VerticalStack(0);
+        form.put(withCaption("รหัสผ่านเจ้าของร้าน", passwordField));
+        form.put(loginButton);
+        return form;
+    }
+
+    // ==========================================
+    // 6. หน้าลูกค้า
+    // ==========================================
+
+    private JPanel buildCustomerScreen(String name, String phone) {
+        return new CustomerScreen(name, phone).build();
+    }
+
+    /**
+     * หน้าลูกค้า แยกเป็นคลาสย่อยเพื่อให้ช่องกรอกและตารางเป็นตัวแปรของคลาส
+     * ทำให้เมธอดต่าง ๆ เรียกใช้ร่วมกันได้โดยไม่ต้องส่งพารามิเตอร์เยอะ
+     *
+     * เค้าโครง:
+     *   ซ้าย  = ฟอร์มจองคิว
+     *   ขวาบน = คิวของฉัน (ตาราง)
+     *   ขวาล่าง = ช่วงเวลาว่าง
+     */
+    private final class CustomerScreen {
+        private final String customerName;
+        private final String customerPhone;
+
+        // ช่องในฟอร์มจอง
+        private final JTextField plateField = createTextField("");
+        private final JTextField dateField = createTextField(LocalDate.now().toString());
+        private final JComboBox<String> carTypeBox = createComboBox(QueueManager.CARS);
+        private final JComboBox<String> serviceBox = createComboBox(qm.names().toArray(new String[0]));
+        private final JComboBox<String> slotBox = createComboBox(QueueManager.SLOTS);
+        private final JLabel priceLabel = createLabel("", 22f, Font.BOLD, BLUE);
+
+        // ช่วงเวลาว่าง
+        private final JLabel availabilityTitle = createLabel(" ", 16f, Font.BOLD, TEXT);
+        private final JLabel[] slotChips = new JLabel[QueueManager.SLOTS.length];
+
+        // คิวของฉัน
+        private final DefaultTableModel tableModel = createBookingModel();
+        private final JTable table = new JTable(tableModel);
+        private final JLabel bookingCount = createLabel(" ", 13f, Font.PLAIN, MUTED);
+
+        CustomerScreen(String name, String phone) {
+            this.customerName = name;
+            this.customerPhone = phone;
+        }
+
+        /** ประกอบทั้งหน้า */
+        JPanel build() {
+            Card bookingForm = buildBookingForm();
+            Card myBookings = buildMyBookingsCard();
+            Card availability = buildAvailabilityCard();
+
+            // เมื่อเลือกเวลาหรือเปลี่ยนวันที่ ให้วาดช่วงเวลาว่างใหม่
+            slotBox.addActionListener(e -> updateAvailability());
+            onTextChange(dateField, this::updateAvailability);
+
+            updatePrice();
+            refreshBookings();
+
+            JPanel rightColumn = new JPanel(new BorderLayout(0, 16));
+            rightColumn.setOpaque(false);
+            rightColumn.add(myBookings, BorderLayout.CENTER);
+            rightColumn.add(availability, BorderLayout.SOUTH);
+
+            JPanel body = new JPanel(new BorderLayout(16, 0));
+            body.setOpaque(false);
+            body.add(bookingForm, BorderLayout.WEST);
+            body.add(rightColumn, BorderLayout.CENTER);
+
+            JPanel screen = new JPanel(new BorderLayout());
+            screen.add(createHeader("สวัสดี, " + customerName, "เบอร์โทร " + customerPhone,
+                    null, createLogoutButton()), BorderLayout.NORTH);
+            screen.add(createPage(body), BorderLayout.CENTER);
+            return screen;
+        }
+
+        // ---------- ฟอร์มจอง ----------
+
+        private Card buildBookingForm() {
+            // เปลี่ยนประเภทรถหรือบริการ -> คำนวณราคาใหม่
+            carTypeBox.addActionListener(e -> updatePrice());
+            serviceBox.addActionListener(e -> updatePrice());
+
+            JButton bookButton = new RoundButton("ยืนยันการจอง", BLUE);
+            bookButton.addActionListener(e -> submitBooking());
+
+            VerticalStack fields = new VerticalStack(300);
+            fields.put(createLabel("จองคิวล้างรถ", 20f, Font.BOLD, TEXT));
+            fields.put(withCaption("ทะเบียนรถ", plateField));
+            fields.put(withCaption("ประเภทรถ", carTypeBox));
+            fields.put(withCaption("บริการ", serviceBox));
+            fields.put(withCaption("วันที่ (yyyy-MM-dd)", createDateField(dateField)));
+            fields.put(withCaption("เวลา", slotBox));
+            fields.put(buildPriceBox());
+            fields.put(bookButton);
+
+            Card card = new Card(new BorderLayout());
+            card.add(fields, BorderLayout.NORTH);
+            return card;
+        }
+
+        private JPanel buildPriceBox() {
+            JPanel box = new JPanel(new BorderLayout());
+            box.setBackground(new Color(0xEFF6FF));
+            box.setBorder(new CompoundBorder(
+                    new LineBorder(new Color(0xBFDBFE), 1, true),
+                    new EmptyBorder(10, 14, 10, 14)));
+            box.add(createLabel("ค่าบริการ", 14f, Font.PLAIN, MUTED), BorderLayout.WEST);
+            box.add(priceLabel, BorderLayout.EAST);
+            return box;
+        }
+
+        private void updatePrice() {
+            String service = (String) serviceBox.getSelectedItem();
+            int price = qm.calc(service, carTypeBox.getSelectedIndex());
+            priceLabel.setText(String.format("%,d บาท", price));
+        }
+
+        private void submitBooking() {
+            try {
+                CUSTOMER booking = qm.book(customerName, customerPhone, plateField.getText(),
+                        carTypeBox.getSelectedIndex(), (String) serviceBox.getSelectedItem(),
+                        dateField.getText(), (String) slotBox.getSelectedItem());
+
+                refreshBookings();
+                showInfo("จองสำเร็จ\nรหัสการจอง " + booking.id + "\n"
+                        + booking.date + " เวลา " + booking.time + "  ราคา " + booking.price + " บาท");
+            } catch (RuntimeException ex) {
+                showWarning(ex.getMessage()); // QueueManager โยนข้อความ error มาให้
+            }
+        }
+
+        // ---------- คิวของฉัน ----------
+
+        private Card buildMyBookingsCard() {
+            styleTable(table);
+            table.setAutoCreateRowSorter(true);
+
+            // ลูกค้าไม่ต้องเห็นคอลัมน์ชื่อและเบอร์โทร (ซ่อนจากมุมมอง ข้อมูลยังอยู่ใน model)
+            TableColumnModel columns = table.getColumnModel();
+            columns.removeColumn(columns.getColumn(COL_PHONE));
+            columns.removeColumn(columns.getColumn(COL_NAME));
+            fitColumns(table);
+
+            JButton cancelButton = new RoundButton("ยกเลิกการจองที่เลือก", RED);
+            cancelButton.addActionListener(e -> cancelSelectedBooking());
+
+            JPanel titleRow = new JPanel(new BorderLayout());
+            titleRow.setOpaque(false);
+            titleRow.add(createLabel("คิวของฉัน", 16f, Font.BOLD, TEXT), BorderLayout.WEST);
+            titleRow.add(bookingCount, BorderLayout.EAST);
+
+            Card card = new Card(new BorderLayout(0, 12));
+            card.add(titleRow, BorderLayout.NORTH);
+            card.add(createScrollPane(table), BorderLayout.CENTER);
+            card.add(rightAligned(cancelButton), BorderLayout.SOUTH);
+            return card;
+        }
+
+        private void cancelSelectedBooking() {
+            Integer id = selectedBookingId(table, tableModel);
+            if (id == null) return;
+            if (!confirm("ยืนยันยกเลิกการจองรหัส " + id + " ?")) return;
+
+            try {
+                qm.cancelByCustomer(id, customerPhone);
+                refreshBookings();
+            } catch (RuntimeException ex) {
+                showWarning(ex.getMessage());
+            }
+        }
+
+        /** โหลดคิวของลูกค้าคนนี้ใหม่ (ใหม่สุดอยู่บนสุด) แล้ววาดช่วงเวลาว่างใหม่ */
+        private void refreshBookings() {
+            List<CUSTOMER> myBookings = new ArrayList<>(qm.byPhone(customerPhone));
+            Collections.reverse(myBookings);
+            loadRows(tableModel, myBookings);
+            bookingCount.setText(myBookings.size() + " รายการ");
+            updateAvailability();
+        }
+
+        // ---------- ช่วงเวลาว่าง ----------
+
+        private Card buildAvailabilityCard() {
+            JPanel chipPanel = new JPanel(new GridLayout(1, QueueManager.SLOTS.length, 8, 0));
+            chipPanel.setOpaque(false);
+
+            for (int i = 0; i < slotChips.length; i++) {
+                String slot = QueueManager.SLOTS[i];
+
+                JLabel chip = new JLabel("", SwingConstants.CENTER);
+                chip.setOpaque(true);
+                chip.setPreferredSize(new Dimension(60, 66));
+                chip.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                chip.addMouseListener(new MouseAdapter() {
+                    @Override public void mouseClicked(MouseEvent e) {
+                        slotBox.setSelectedItem(slot); // คลิกชิป = เลือกเวลานั้นในฟอร์ม
+                    }
+                });
+
+                slotChips[i] = chip;
+                chipPanel.add(chip);
+            }
+
+            Card card = new Card(new BorderLayout(0, 12));
+            card.add(availabilityTitle, BorderLayout.NORTH);
+            card.add(chipPanel, BorderLayout.CENTER);
+            card.add(createLabel("คลิกที่ช่วงเวลาเพื่อเลือกในฟอร์มจอง", 12f, Font.PLAIN, MUTED),
+                    BorderLayout.SOUTH);
+            return card;
+        }
+
+        /** นับจำนวนการจองที่ยังไม่ถูกยกเลิก ในวันและช่วงเวลาที่กำหนด */
+        private long countBookings(String day, String slot) {
+            return qm.all().stream()
+                    .filter(b -> b.date.equals(day))
+                    .filter(b -> b.time.equals(slot))
+                    .filter(b -> !b.status.equals(QueueManager.CANCEL))
+                    .count();
+        }
+
+        private void updateAvailability() {
+            LocalDate date = parseDate(dateField.getText());
+
+            if (date == null) {
+                availabilityTitle.setText("ช่วงเวลา (กรอกวันที่ให้ถูกต้อง)");
+            } else {
+                availabilityTitle.setText("ช่วงเวลาวันที่ " + date
+                        + "  (รับพร้อมกันได้ " + QueueManager.BAYS + " คัน/ช่วง)");
+            }
+
+            for (int i = 0; i < slotChips.length; i++) {
+                paintChip(slotChips[i], QueueManager.SLOTS[i], date);
+            }
+        }
+
+        /** กำหนดสีและข้อความของชิปหนึ่งอัน: ผ่านแล้ว / เต็ม / ว่าง 1 / ว่างหลายคัน */
+        private void paintChip(JLabel chip, String slot, LocalDate date) {
+            Color background = new Color(0xF1F5F9);
+            Color foreground = new Color(0x94A3B8);
+            String caption = "-";
+
+            if (date != null) {
+                long free = QueueManager.BAYS - countBookings(date.toString(), slot);
+                LocalDateTime slotTime = LocalDateTime.of(date, LocalTime.parse(slot));
+
+                if (slotTime.isBefore(LocalDateTime.now())) {
+                    caption = "ผ่านแล้ว";
+                } else if (free <= 0) {
+                    background = new Color(0xFEE2E2);
+                    foreground = new Color(0x991B1B);
+                    caption = "เต็ม";
+                } else if (free == 1) {
+                    background = new Color(0xFEF3C7);
+                    foreground = new Color(0x92400E);
+                    caption = "ว่าง 1";
+                } else {
+                    background = new Color(0xDCFCE7);
+                    foreground = new Color(0x166534);
+                    caption = "ว่าง " + free;
+                }
+            }
+
+            // ชิปที่ถูกเลือกอยู่ในฟอร์มจะมีขอบสีน้ำเงินหนา
+            boolean picked = slot.equals(slotBox.getSelectedItem());
+            Color borderColor = picked ? BLUE : background.darker();
+
+            chip.setBackground(background);
+            chip.setForeground(foreground);
+            chip.setText("<html><center><b>" + slot + "</b><br>" + caption + "</center></html>");
+            chip.setBorder(new LineBorder(borderColor, picked ? 3 : 1, true));
+        }
+    }
+
+    // ==========================================
+    // 7. หน้าเจ้าของร้าน
+    // ==========================================
+
+    private static final String[] OWNER_TABS = {"รายการจอง", "สรุปรายได้", "ตั้งราคาบริการ"};
+
+    /** หน้าเจ้าของ: แถบหัว (มีเมนู 3 แท็บ) + เนื้อหาที่สลับตามแท็บ */
+    private JPanel buildOwnerScreen() {
+        // refreshers[i] = โค้ดที่รันทุกครั้งที่เปิดแท็บที่ i (เพื่อโหลดข้อมูลล่าสุด)
+        Runnable[] refreshers = new Runnable[OWNER_TABS.length];
+
+        CardLayout cardLayout = new CardLayout();
+        JPanel body = new JPanel(cardLayout);
+        body.setBackground(BG);
+        body.add(buildBookingTab(refreshers), "0");
+        body.add(buildIncomeTab(refreshers), "1");
+        body.add(buildPriceTab(), "2");
+
+        JButton[] tabs = new JButton[OWNER_TABS.length];
+        Color inactiveText = new Color(0x94A3B8);
+
+        JPanel menu = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+        menu.setOpaque(false);
+
+        for (int i = 0; i < tabs.length; i++) {
+            int index = i; // lambda ต้องใช้ตัวแปรที่ไม่เปลี่ยนค่า
+            tabs[i] = createTabButton(OWNER_TABS[i]);
+            styleTab(tabs[i], i == 0, Color.WHITE, inactiveText, SKY, NAVY);
+
+            tabs[i].addActionListener(e -> {
+                cardLayout.show(body, String.valueOf(index));
+                for (int j = 0; j < tabs.length; j++) {
+                    styleTab(tabs[j], j == index, Color.WHITE, inactiveText, SKY, NAVY);
+                }
+                if (refreshers[index] != null) refreshers[index].run();
             });
-        });
+            menu.add(tabs[i]);
+        }
 
-        JPanel p = new JPanel(new BorderLayout(6, 6));
-        p.setBorder(BorderFactory.createTitledBorder("ประวัติการจองของฉัน"));
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
-        p.add(cancelBtn, BorderLayout.SOUTH);
-        return p;
+        JPanel screen = new JPanel(new BorderLayout());
+        screen.add(createHeader("แผงควบคุมเจ้าของร้าน", "ศูนย์บริการล้างรถ", menu, createLogoutButton()),
+                BorderLayout.NORTH);
+        screen.add(body, BorderLayout.CENTER);
+        return screen;
     }
 
-    // ================= ฝั่งเจ้าของ =================
+    // ---------- แท็บ 1: รายการจอง ----------
 
-    private JPanel ownerPanel() {
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.add("รายการจองทั้งหมด", bookingTab());
-        tabs.add("รายได้", incomeTab());
-        tabs.add("ตั้งราคาบริการ", priceTab());
-
-        JButton logoutBtn = new JButton("ออกจากระบบ");
-        logoutBtn.addActionListener(e -> showPanel(loginPanel()));
-
-        JPanel p = new JPanel(new BorderLayout());
-        p.add(tabs, BorderLayout.CENTER);
-        p.add(logoutBtn, BorderLayout.SOUTH);
-        return p;
-    }
-
-    private JPanel bookingTab() {
-        DefaultTableModel model = newBookingModel();
+    /** ตารางทุกการจอง + ค้นหา + กรองสถานะ + ปุ่มจัดการ */
+    private JPanel buildBookingTab(Runnable[] refreshers) {
+        DefaultTableModel model = createBookingModel();
         JTable table = new JTable(model);
-        Runnable refresh = () -> fillTable(model, qm.all());
+        styleTable(table);
+        fitColumns(table);
+
+        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
+        table.setRowSorter(sorter);
+
+        JTextField searchField = createTextField("");
+        searchField.setColumns(18);
+        JComboBox<String> statusBox = createComboBox(
+                new String[]{ALL, QueueManager.WAIT, QueueManager.DONE, QueueManager.CANCEL});
+        statusBox.setPreferredSize(new Dimension(150, 36));
+        JLabel countLabel = createLabel(" ", 13f, Font.PLAIN, MUTED);
+
+        // ใช้ตัวกรอง (ค้นหา + สถานะ) แล้วอัปเดตจำนวนแถวที่แสดง
+        Runnable applyFilter = () -> {
+            String status = (String) statusBox.getSelectedItem();
+            String keyword = searchField.getText().trim().toLowerCase();
+            sorter.setRowFilter(createBookingFilter(status, keyword));
+            countLabel.setText("แสดง " + table.getRowCount() + " จาก " + model.getRowCount() + " รายการ");
+        };
+
+        // โหลดข้อมูลจาก QueueManager ใหม่ แล้วใช้ตัวกรองซ้ำ
+        Runnable refresh = () -> {
+            loadRows(model, qm.all());
+            applyFilter.run();
+        };
+        refreshers[0] = refresh;
+
+        onTextChange(searchField, applyFilter);
+        statusBox.addActionListener(e -> applyFilter.run());
+
+        // แถวบน: ช่องค้นหา + ตัวกรองสถานะ + จำนวนรายการ
+        JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        filters.setOpaque(false);
+        filters.add(createLabel("ค้นหา", 13f, Font.PLAIN, MUTED));
+        filters.add(searchField);
+        filters.add(createLabel("สถานะ", 13f, Font.PLAIN, MUTED));
+        filters.add(statusBox);
+
+        JPanel top = new JPanel(new BorderLayout());
+        top.setOpaque(false);
+        top.add(filters, BorderLayout.WEST);
+        top.add(countLabel, BorderLayout.EAST);
+
+        // แถวล่าง: ปุ่มจัดการ
+        JButton reloadButton = new RoundButton("รีเฟรช", MUTED);
+        JButton doneButton = new RoundButton("เสร็จสิ้น", GREEN);
+        JButton cancelButton = new RoundButton("ยกเลิก", AMBER);
+        JButton deleteButton = new RoundButton("ลบ", RED);
+
+        reloadButton.addActionListener(e -> refresh.run());
+        doneButton.addActionListener(e -> changeStatus(table, model, QueueManager.DONE, refresh));
+        cancelButton.addActionListener(e -> changeStatus(table, model, QueueManager.CANCEL, refresh));
+        deleteButton.addActionListener(e -> deleteSelected(table, model, refresh));
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        buttons.setOpaque(false);
+        buttons.add(reloadButton);
+        buttons.add(doneButton);
+        buttons.add(cancelButton);
+        buttons.add(deleteButton);
+
+        Card card = new Card(new BorderLayout(0, 12));
+        card.add(top, BorderLayout.NORTH);
+        card.add(createScrollPane(table), BorderLayout.CENTER);
+        card.add(buttons, BorderLayout.SOUTH);
+
         refresh.run();
-
-        JButton doneBtn = new JButton("เสร็จสิ้น");
-        JButton cancelBtn = new JButton("ยกเลิก");
-        JButton deleteBtn = new JButton("ลบ");
-        JButton reloadBtn = new JButton("รีเฟรช");
-
-        doneBtn.addActionListener(e -> changeStatus(table, model, QueueManager.DONE, refresh));
-        cancelBtn.addActionListener(e -> changeStatus(table, model, QueueManager.CANCEL, refresh));
-        deleteBtn.addActionListener(e -> deleteSelected(table, model, refresh));
-        reloadBtn.addActionListener(e -> refresh.run());
-
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        for (JButton b : new JButton[]{doneBtn, cancelBtn, deleteBtn, reloadBtn}) buttons.add(b);
-
-        JPanel p = new JPanel(new BorderLayout());
-        p.add(new JScrollPane(table), BorderLayout.CENTER);
-        p.add(buttons, BorderLayout.SOUTH);
-        return p;
+        return createPage(card);
     }
 
-    private void changeStatus(JTable table, DefaultTableModel model, String status, Runnable refresh) {
-        Integer id = selectedId(table, model);
-        if (id != null) attempt(() -> {
-            qm.setStatus(id, status);
+    /** ตัวกรองแถว: สถานะต้องตรง และคำค้นต้องอยู่ในคอลัมน์ ชื่อ/โทร/ทะเบียน/ประเภทรถ/บริการ */
+    private RowFilter<DefaultTableModel, Integer> createBookingFilter(String status, String keyword) {
+        return new RowFilter<DefaultTableModel, Integer>() {
+            @Override public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> row) {
+                boolean statusMatches = ALL.equals(status) || row.getStringValue(COL_STATUS).equals(status);
+                if (!statusMatches) return false;
+                if (keyword.isEmpty()) return true;
+
+                for (int col = COL_NAME; col <= 5; col++) {
+                    if (row.getStringValue(col).toLowerCase().contains(keyword)) return true;
+                }
+                return false;
+            }
+        };
+    }
+
+    private void changeStatus(JTable table, DefaultTableModel model, String newStatus, Runnable refresh) {
+        Integer id = selectedBookingId(table, model);
+        if (id == null) return;
+
+        try {
+            qm.setStatus(id, newStatus);
             refresh.run();
-        });
+        } catch (RuntimeException ex) {
+            showWarning(ex.getMessage());
+        }
     }
 
     private void deleteSelected(JTable table, DefaultTableModel model, Runnable refresh) {
-        Integer id = selectedId(table, model);
+        Integer id = selectedBookingId(table, model);
         if (id == null) return;
-        int answer = JOptionPane.showConfirmDialog(this, "ลบรายการนี้ถาวร?", "ยืนยัน", JOptionPane.YES_NO_OPTION);
-        if (answer != JOptionPane.YES_OPTION) return;
-        attempt(() -> {
+        if (!confirm("ลบรายการนี้ถาวร?")) return;
+
+        try {
             qm.delete(id);
             refresh.run();
-        });
+        } catch (RuntimeException ex) {
+            showWarning(ex.getMessage());
+        }
     }
 
-    private JPanel incomeTab() {
-        JTextField day = new JTextField(LocalDate.now().toString(), 10);
-        JLabel result = boldLabel(" ", 18f);
-        JButton sumBtn = new JButton("สรุปรายได้");
+    // ---------- แท็บ 2: สรุปรายได้ ----------
 
-        sumBtn.addActionListener(e -> {
-            String d = day.getText().trim();
-            result.setText("<html>วันที่ " + d + ": " + qm.countDoneOn(d) + " คัน รายได้ " + qm.incomeOn(d)
-                    + " บาท<br>รายได้รวมทั้งหมด " + qm.incomeTotal() + " บาท</html>");
-        });
+    /** เลือกวันที่ แล้วแสดงการ์ดสถิติ 4 ใบ */
+    private JPanel buildIncomeTab(Runnable[] refreshers) {
+        JTextField dayField = createTextField(LocalDate.now().toString());
+        dayField.setColumns(10);
 
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-        p.add(new JLabel("วันที่ (yyyy-MM-dd)"));
-        p.add(day);
-        p.add(sumBtn);
-        p.add(result);
-        return p;
-    }
+        JPanel stats = new JPanel(new GridLayout(1, 4, 16, 0));
+        stats.setOpaque(false);
+        JLabel doneCountLabel = addStatCard(stats, "คันที่ล้างเสร็จ (วันที่เลือก)", BLUE);
+        JLabel dayIncomeLabel = addStatCard(stats, "รายได้ (วันที่เลือก)", GREEN);
+        JLabel totalIncomeLabel = addStatCard(stats, "รายได้รวมทั้งหมด", NAVY);
+        JLabel waitingLabel = addStatCard(stats, "คิวรอดำเนินการทั้งหมด", AMBER);
 
-    private JPanel priceTab() {
-        DefaultTableModel model = new DefaultTableModel(new String[]{"บริการ", "ราคาพื้นฐาน (รถเก๋ง)"}, 0) {
-            @Override public boolean isCellEditable(int row, int col) { return col == 1; }
+        Runnable refresh = () -> {
+            String day = dayField.getText().trim();
+            long waiting = qm.all().stream().filter(b -> b.status.equals(QueueManager.WAIT)).count();
+
+            doneCountLabel.setText(qm.countDoneOn(day) + " คัน");
+            dayIncomeLabel.setText(String.format("%,d บาท", qm.incomeOn(day)));
+            totalIncomeLabel.setText(String.format("%,d บาท", qm.incomeTotal()));
+            waitingLabel.setText(waiting + " คิว");
         };
-        for (String s : qm.names()) model.addRow(new Object[]{s, qm.basePrice(s)});
+        refreshers[1] = refresh;
+        onTextChange(dayField, refresh);
+        refresh.run();
 
-        JButton saveBtn = new JButton("บันทึกราคา");
-        saveBtn.addActionListener(e -> savePrices(model));
+        JPanel picker = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        picker.setOpaque(false);
+        picker.add(createLabel("เลือกวันที่ (yyyy-MM-dd)", 14f, Font.PLAIN, MUTED));
+        picker.add(createDateField(dayField));
 
-        JPanel p = new JPanel(new BorderLayout());
-        p.add(new JScrollPane(new JTable(model)), BorderLayout.CENTER);
-        p.add(saveBtn, BorderLayout.SOUTH);
-        return p;
+        Card pickerCard = new Card(new BorderLayout());
+        pickerCard.add(picker, BorderLayout.CENTER);
+
+        JPanel statsHolder = new JPanel(new BorderLayout());
+        statsHolder.setOpaque(false);
+        statsHolder.add(stats, BorderLayout.NORTH);
+
+        JPanel content = new JPanel(new BorderLayout(0, 16));
+        content.setOpaque(false);
+        content.add(pickerCard, BorderLayout.NORTH);
+        content.add(statsHolder, BorderLayout.CENTER);
+        return createPage(content);
     }
 
-    private void savePrices(DefaultTableModel model) {
+    /** สร้างการ์ดสถิติ 1 ใบแล้วเพิ่มลง parent คืน label ที่ไว้แสดงตัวเลข */
+    private static JLabel addStatCard(JPanel parent, String title, Color accent) {
+        JLabel valueLabel = createLabel("-", 26f, Font.BOLD, accent);
+
+        Card card = new Card(new BorderLayout(0, 8));
+        card.add(createLabel(title, 13f, Font.PLAIN, MUTED), BorderLayout.NORTH);
+        card.add(valueLabel, BorderLayout.CENTER);
+
+        parent.add(card);
+        return valueLabel;
+    }
+
+    // ---------- แท็บ 3: ตั้งราคา ----------
+
+    /** ตารางแก้ราคาพื้นฐานของแต่ละบริการ แล้วกดบันทึก */
+    private JPanel buildPriceTab() {
+        final int PRICE_COLUMN = 1;
+
+        DefaultTableModel priceModel = new DefaultTableModel(
+                new String[]{"บริการ", "ราคาพื้นฐาน (รถเก๋ง)"}, 0) {
+            @Override public boolean isCellEditable(int row, int column) {
+                return column == PRICE_COLUMN; // แก้ได้เฉพาะช่องราคา
+            }
+        };
+        for (String service : qm.names()) {
+            priceModel.addRow(new Object[]{service, qm.basePrice(service)});
+        }
+
+        JTable priceTable = new JTable(priceModel);
+        styleTable(priceTable);
+
+        JButton saveButton = new RoundButton("บันทึกราคา", BLUE);
+        saveButton.addActionListener(e -> savePrices(priceTable, priceModel, PRICE_COLUMN));
+
+        VerticalStack head = new VerticalStack(0);
+        head.put(createLabel("ตั้งราคาบริการ", 18f, Font.BOLD, TEXT));
+        head.put(createLabel("ดับเบิลคลิกที่ช่องราคาเพื่อแก้ไข แล้วกดบันทึก", 13f, Font.PLAIN, MUTED));
+
+        JPanel footer = new JPanel(new BorderLayout(0, 12));
+        footer.setOpaque(false);
+        footer.add(createLabel(describeMultipliers(), 12f, Font.PLAIN, MUTED), BorderLayout.NORTH);
+        footer.add(rightAligned(saveButton), BorderLayout.SOUTH);
+
+        Card card = new Card(new BorderLayout(0, 4));
+        card.add(head, BorderLayout.NORTH);
+        card.add(createScrollPane(priceTable), BorderLayout.CENTER);
+        card.add(footer, BorderLayout.SOUTH);
+        return createPage(card);
+    }
+
+    /** ข้อความสรุปตัวคูณราคาตามประเภทรถ เช่น "เก๋ง ×1.0 | SUV ×1.3" */
+    private static String describeMultipliers() {
+        StringBuilder text = new StringBuilder("ตัวคูณตามประเภทรถ:  ");
+        for (int i = 0; i < QueueManager.CARS.length; i++) {
+            if (i > 0) text.append("   |   ");
+            text.append(QueueManager.CARS[i]).append(" ×").append(QueueManager.MULT[i]);
+        }
+        return text.toString();
+    }
+
+    private void savePrices(JTable priceTable, DefaultTableModel priceModel, int priceColumn) {
+        // ถ้ายังพิมพ์ค้างอยู่ในช่อง ให้ยืนยันค่านั้นก่อน
+        if (priceTable.isEditing()) priceTable.getCellEditor().stopCellEditing();
+
         try {
-            for (int i = 0; i < model.getRowCount(); i++) {
-                String service = (String) model.getValueAt(i, 0);
-                int price = Integer.parseInt(model.getValueAt(i, 1).toString().trim());
+            for (int row = 0; row < priceModel.getRowCount(); row++) {
+                String service = (String) priceModel.getValueAt(row, 0);
+                int price = Integer.parseInt(priceModel.getValueAt(row, priceColumn).toString().trim());
                 qm.setPrice(service, price);
             }
             qm.savePrices();
-            info("บันทึกราคาแล้ว (ลูกค้าจะเห็นราคาใหม่เมื่อเข้าสู่ระบบครั้งถัดไป)");
+            showInfo("บันทึกราคาแล้ว (ลูกค้าจะเห็นราคาใหม่เมื่อเข้าสู่ระบบครั้งถัดไป)");
         } catch (IllegalArgumentException ex) {
-            warn("ราคาต้องเป็นตัวเลขจำนวนเต็มไม่ติดลบ");
+            showWarning("ราคาต้องเป็นตัวเลขจำนวนเต็มไม่ติดลบ"); // พิมพ์ไม่ใช่ตัวเลข
         } catch (IllegalStateException ex) {
-            warn(ex.getMessage());
+            showWarning(ex.getMessage());
         }
     }
 }
