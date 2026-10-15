@@ -82,8 +82,7 @@ public class QueueManager {
         if (LocalDateTime.of(d, LocalTime.parse(time)).isBefore(LocalDateTime.now()))
             throw new IllegalArgumentException("ไม่สามารถจองเวลาที่ผ่านมาแล้ว");
         String day = d.toString();
-        long used = items.stream()
-                .filter(b -> b.date.equals(day) && b.time.equals(time) && !b.status.equals(CANCEL)).count();
+        long used = countBookings(day, time);
         if (used >= BAYS) throw new IllegalArgumentException("ช่วงเวลานี้เต็มแล้ว กรุณาเลือกเวลาอื่น");
 
         int id = items.stream().mapToInt(b -> b.id).max().orElse(0) + 1;
@@ -112,7 +111,7 @@ public class QueueManager {
         return items.stream().filter(b -> b.phone.equals(phone)).collect(Collectors.toList());
     }
 
-    // ---------- รายได้ ----------
+    // ---------- สถิติและรายได้ ----------
     public int incomeOn(String date) {
         return items.stream().filter(b -> b.status.equals(DONE) && b.date.equals(date)).mapToInt(b -> b.price).sum();
     }
@@ -123,6 +122,16 @@ public class QueueManager {
 
     public int incomeTotal() {
         return items.stream().filter(b -> b.status.equals(DONE)).mapToInt(b -> b.price).sum();
+    }
+
+    public long countWaiting() {
+        return items.stream().filter(b -> b.status.equals(WAIT)).count();
+    }
+
+    public long countBookings(String day, String slot) {
+        return items.stream()
+                .filter(b -> b.date.equals(day) && b.time.equals(slot) && !b.status.equals(CANCEL))
+                .count();
     }
 
     // ---------- ภายใน ----------

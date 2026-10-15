@@ -1,6 +1,6 @@
-import javax.swing.*;
 import java.awt.Font;
 import java.util.Collections;
+import javax.swing.*;
 
 /**
  * ตัวรันระบบ: จุดเริ่มต้นโปรแกรม (main) — ตั้งฟอนต์ สร้าง QueueManager แล้วเปิดหน้าต่าง CarWashUI
@@ -19,3 +19,16 @@ public class CarWashRunner {
         });
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
