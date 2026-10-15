@@ -17,7 +17,6 @@ import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
-import javax.swing.table.TableRowSorter;
 
 /**
  * หน้าต่าง GUI ของระบบศูนย์บริการล้างรถ
@@ -29,7 +28,7 @@ import javax.swing.table.TableRowSorter;
  *   4. เมธอดช่วยสร้างหน้าจอ
  *   5. หน้าเข้าสู่ระบบ
  *   6. หน้าลูกค้า
- *   7. หน้าเจ้าของร้าน (3 แท็บ)
+ *   (หน้าเจ้าของร้านอยู่ในไฟล์ OwnerScreen.java)
  *
  * คลาสนี้ทำหน้าที่แค่แสดงผลและรับข้อมูลจากผู้ใช้
  * กติกาธุรกิจทั้งหมดอยู่ใน QueueManager
@@ -41,28 +40,28 @@ public class CarWashUI extends JFrame {
     // ==========================================
 
     private static final String OWNER_PASSWORD = "1234";
-    private static final String ALL = "ทั้งหมด"; // ตัวเลือก "ทุกสถานะ" ในช่องกรอง
+    static final String ALL = "ทั้งหมด"; // ตัวเลือก "ทุกสถานะ" ในช่องกรอง
 
     // หัวตารางการจอง (ลำดับต้องตรงกับ CUSTOMER.toRow())
-    private static final String[] COLUMNS = {
+    static final String[] COLUMNS = {
             "รหัส", "ชื่อ", "โทร", "ทะเบียน", "ประเภทรถ", "บริการ", "วันที่", "เวลา", "ราคา", "สถานะ"};
-    private static final int COL_ID = 0;
-    private static final int COL_NAME = 1;
-    private static final int COL_PHONE = 2;
-    private static final int COL_STATUS = 9;
+    static final int COL_ID = 0;
+    static final int COL_NAME = 1;
+    static final int COL_PHONE = 2;
+    static final int COL_STATUS = 9;
 
     // สีหลักของโปรแกรม
-    private static final Color NAVY = new Color(0x0F172A);
-    private static final Color SLATE = new Color(0x334155);
-    private static final Color BLUE = new Color(0x2563EB);
-    private static final Color SKY = new Color(0x38BDF8);
-    private static final Color BG = new Color(0xF1F5F9);
-    private static final Color LINE = new Color(0xE2E8F0);
-    private static final Color TEXT = new Color(0x1E293B);
-    private static final Color MUTED = new Color(0x64748B);
-    private static final Color GREEN = new Color(0x16A34A);
-    private static final Color RED = new Color(0xDC2626);
-    private static final Color AMBER = new Color(0xD97706);
+    static final Color NAVY = new Color(0x0F172A);
+    static final Color SLATE = new Color(0x334155);
+    static final Color BLUE = new Color(0x2563EB);
+    static final Color SKY = new Color(0x38BDF8);
+    static final Color BG = new Color(0xF1F5F9);
+    static final Color LINE = new Color(0xE2E8F0);
+    static final Color TEXT = new Color(0x1E293B);
+    static final Color MUTED = new Color(0x64748B);
+    static final Color GREEN = new Color(0x16A34A);
+    static final Color RED = new Color(0xDC2626);
+    static final Color AMBER = new Color(0xD97706);
 
     private final QueueManager qm;
     private final JPanel root = new JPanel(new BorderLayout());
@@ -90,7 +89,7 @@ public class CarWashUI extends JFrame {
     // ==========================================
 
     /** ปุ่มมุมโค้ง เปลี่ยนสีเข้มขึ้นเมื่อเมาส์ชี้ */
-    private static class RoundButton extends JButton {
+    static class RoundButton extends JButton {
         private final Color color;
         private boolean hovered = false;
 
@@ -126,7 +125,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** การ์ดสีขาว มุมโค้ง มีเส้นขอบบาง */
-    private static class Card extends JPanel {
+    static class Card extends JPanel {
         Card(LayoutManager layout) {
             super(layout);
             setOpaque(false);
@@ -146,7 +145,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** แผงเรียงของจากบนลงล่าง ยืดเต็มความกว้าง (ใช้ put เพิ่มของทีละชิ้น) */
-    private static class VerticalStack extends JPanel {
+    static class VerticalStack extends JPanel {
         private final GridBagConstraints rules = new GridBagConstraints();
         private final int minWidth;
 
@@ -250,16 +249,16 @@ public class CarWashUI extends JFrame {
 
     // ---------- กล่องข้อความ / เปลี่ยนหน้า ----------
 
-    private void showWarning(String message) {
+    void showWarning(String message) {
         JOptionPane.showMessageDialog(this, message, "แจ้งเตือน", JOptionPane.WARNING_MESSAGE);
     }
 
-    private void showInfo(String message) {
+    void showInfo(String message) {
         JOptionPane.showMessageDialog(this, message);
     }
 
     /** ถามยืนยัน คืน true ถ้าผู้ใช้กด "ใช่" */
-    private boolean confirm(String message) {
+    boolean confirm(String message) {
         int answer = JOptionPane.showConfirmDialog(this, message, "ยืนยัน", JOptionPane.YES_NO_OPTION);
         return answer == JOptionPane.YES_OPTION;
     }
@@ -274,7 +273,7 @@ public class CarWashUI extends JFrame {
 
     // ---------- สร้างส่วนประกอบพื้นฐาน ----------
 
-    private static JLabel createLabel(String text, float size, int style, Color color) {
+    static JLabel createLabel(String text, float size, int style, Color color) {
         JLabel label = new JLabel(text);
         label.setFont(label.getFont().deriveFont(style, size));
         label.setForeground(color);
@@ -288,13 +287,13 @@ public class CarWashUI extends JFrame {
         field.setForeground(TEXT);
     }
 
-    private static JTextField createTextField(String text) {
+    static JTextField createTextField(String text) {
         JTextField field = new JTextField(text);
         styleTextField(field);
         return field;
     }
 
-    private static JComboBox<String> createComboBox(String[] items) {
+    static JComboBox<String> createComboBox(String[] items) {
         JComboBox<String> box = new JComboBox<>(items);
         box.setBackground(Color.WHITE);
         box.setForeground(TEXT);
@@ -312,7 +311,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** ห่อเนื้อหาด้วยพื้นหลังเทาและขอบรอบ ๆ */
-    private static JPanel createPage(JComponent content) {
+    static JPanel createPage(JComponent content) {
         JPanel page = new JPanel(new BorderLayout());
         page.setBackground(BG);
         page.setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -320,7 +319,7 @@ public class CarWashUI extends JFrame {
         return page;
     }
 
-    private static JScrollPane createScrollPane(JComponent content) {
+    static JScrollPane createScrollPane(JComponent content) {
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(new LineBorder(LINE));
         scrollPane.getViewport().setBackground(Color.WHITE);
@@ -328,7 +327,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** วางปุ่มชิดขวา */
-    private static JPanel rightAligned(JComponent button) {
+    static JPanel rightAligned(JComponent button) {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         row.setOpaque(false);
         row.add(button);
@@ -336,7 +335,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** แถบหัวสีกรมท่า: ชื่อ+คำอธิบายทางซ้าย, เมนูตรงกลาง (ไม่ใส่ก็ได้), ปุ่มทางขวา */
-    private static JPanel createHeader(String title, String subtitle, JComponent center, JComponent right) {
+    static JPanel createHeader(String title, String subtitle, JComponent center, JComponent right) {
         JPanel titles = new JPanel(new GridLayout(0, 1));
         titles.setOpaque(false);
         titles.add(createLabel(title, 18f, Font.BOLD, Color.WHITE));
@@ -351,7 +350,7 @@ public class CarWashUI extends JFrame {
         return header;
     }
 
-    private JButton createLogoutButton() {
+    JButton createLogoutButton() {
         JButton button = new RoundButton("ออกจากระบบ", SLATE);
         button.addActionListener(e -> showScreen(buildLoginScreen()));
         return button;
@@ -359,7 +358,7 @@ public class CarWashUI extends JFrame {
 
     // ---------- แท็บนำทาง ----------
 
-    private static JButton createTabButton(String text) {
+    static JButton createTabButton(String text) {
         JButton button = new JButton(text);
         button.setContentAreaFilled(false);
         button.setFocusPainted(false);
@@ -369,7 +368,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** ตั้งสีตัวอักษรและเส้นใต้ของแท็บ ตามว่ากำลังเลือกอยู่หรือไม่ */
-    private static void styleTab(JButton button, boolean active,
+    static void styleTab(JButton button, boolean active,
                                  Color activeText, Color inactiveText, Color activeBar, Color inactiveBar) {
         button.setForeground(active ? activeText : inactiveText);
         button.setBorder(new CompoundBorder(
@@ -396,7 +395,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** ช่องวันที่ + ปุ่ม < > สำหรับเลื่อนวัน */
-    private static JPanel createDateField(JTextField dateField) {
+    static JPanel createDateField(JTextField dateField) {
         JButton previous = new RoundButton("<", MUTED);
         JButton next = new RoundButton(">", MUTED);
         previous.setBorder(new EmptyBorder(8, 12, 8, 12));
@@ -417,7 +416,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** เรียก action ทุกครั้งที่ข้อความในช่องเปลี่ยน */
-    private static void onTextChange(JTextField field, Runnable action) {
+    static void onTextChange(JTextField field, Runnable action) {
         field.getDocument().addDocumentListener(new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { action.run(); }
             @Override public void removeUpdate(DocumentEvent e) { action.run(); }
@@ -428,7 +427,7 @@ public class CarWashUI extends JFrame {
     // ---------- ตาราง ----------
 
     /** model ตารางการจอง (แก้ไขในตารางไม่ได้) */
-    private static DefaultTableModel createBookingModel() {
+    static DefaultTableModel createBookingModel() {
         return new DefaultTableModel(COLUMNS, 0) {
             @Override public boolean isCellEditable(int row, int column) {
                 return false;
@@ -442,14 +441,14 @@ public class CarWashUI extends JFrame {
     }
 
     /** ล้างตารางแล้วใส่รายการจองใหม่ทั้งหมด */
-    private static void loadRows(DefaultTableModel model, List<CUSTOMER> bookings) {
+    static void loadRows(DefaultTableModel model, List<CUSTOMER> bookings) {
         model.setRowCount(0);
         for (CUSTOMER booking : bookings) {
             model.addRow(booking.toRow());
         }
     }
 
-    private static void styleTable(JTable table) {
+    static void styleTable(JTable table) {
         table.setRowHeight(34);
         table.setShowVerticalLines(false);
         table.setShowHorizontalLines(true);
@@ -471,7 +470,7 @@ public class CarWashUI extends JFrame {
     }
 
     /** ตั้งความกว้างคอลัมน์ตามชื่อ */
-    private static void fitColumns(JTable table) {
+    static void fitColumns(JTable table) {
         for (int i = 0; i < table.getColumnCount(); i++) {
             int width;
             switch (table.getColumnName(i)) {
@@ -491,7 +490,7 @@ public class CarWashUI extends JFrame {
      * คืนรหัสการจองของแถวที่เลือก (ถ้าไม่ได้เลือกจะเตือนและคืน null)
      * ต้องแปลงเลขแถวบนจอเป็นเลขแถวใน model เพราะตารางอาจถูกเรียง/กรองอยู่
      */
-    private Integer selectedBookingId(JTable table, DefaultTableModel model) {
+    Integer selectedBookingId(JTable table, DefaultTableModel model) {
         int viewRow = table.getSelectedRow();
         if (viewRow < 0) {
             showWarning("กรุณาเลือกรายการก่อน");
@@ -606,7 +605,7 @@ public class CarWashUI extends JFrame {
         loginButton.addActionListener(e -> {
             String typed = new String(passwordField.getPassword());
             if (typed.equals(OWNER_PASSWORD)) {
-                showScreen(buildOwnerScreen());
+                showScreen(new OwnerScreen(this, qm).build());
             } else {
                 showWarning("รหัสผ่านไม่ถูกต้อง");
             }
@@ -887,295 +886,6 @@ public class CarWashUI extends JFrame {
             chip.setForeground(foreground);
             chip.setText("<html><center><b>" + slot + "</b><br>" + caption + "</center></html>");
             chip.setBorder(new LineBorder(borderColor, picked ? 3 : 1, true));
-        }
-    }
-
-    // ==========================================
-    // 7. หน้าเจ้าของร้าน
-    // ==========================================
-
-    private static final String[] OWNER_TABS = {"รายการจอง", "สรุปรายได้", "ตั้งราคาบริการ"};
-
-    /** หน้าเจ้าของ: แถบหัว (มีเมนู 3 แท็บ) + เนื้อหาที่สลับตามแท็บ */
-    private JPanel buildOwnerScreen() {
-        // refreshers[i] = โค้ดที่รันทุกครั้งที่เปิดแท็บที่ i (เพื่อโหลดข้อมูลล่าสุด)
-        Runnable[] refreshers = new Runnable[OWNER_TABS.length];
-
-        CardLayout cardLayout = new CardLayout();
-        JPanel body = new JPanel(cardLayout);
-        body.setBackground(BG);
-        body.add(buildBookingTab(refreshers), "0");
-        body.add(buildIncomeTab(refreshers), "1");
-        body.add(buildPriceTab(), "2");
-
-        JButton[] tabs = new JButton[OWNER_TABS.length];
-        Color inactiveText = new Color(0x94A3B8);
-
-        JPanel menu = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
-        menu.setOpaque(false);
-
-        for (int i = 0; i < tabs.length; i++) {
-            int index = i; // lambda ต้องใช้ตัวแปรที่ไม่เปลี่ยนค่า
-            tabs[i] = createTabButton(OWNER_TABS[i]);
-            styleTab(tabs[i], i == 0, Color.WHITE, inactiveText, SKY, NAVY);
-
-            tabs[i].addActionListener(e -> {
-                cardLayout.show(body, String.valueOf(index));
-                for (int j = 0; j < tabs.length; j++) {
-                    styleTab(tabs[j], j == index, Color.WHITE, inactiveText, SKY, NAVY);
-                }
-                if (refreshers[index] != null) refreshers[index].run();
-            });
-            menu.add(tabs[i]);
-        }
-
-        JPanel screen = new JPanel(new BorderLayout());
-        screen.add(createHeader("แผงควบคุมเจ้าของร้าน", "ศูนย์บริการล้างรถ", menu, createLogoutButton()),
-                BorderLayout.NORTH);
-        screen.add(body, BorderLayout.CENTER);
-        return screen;
-    }
-
-    // ---------- แท็บ 1: รายการจอง ----------
-
-    /** ตารางทุกการจอง + ค้นหา + กรองสถานะ + ปุ่มจัดการ */
-    private JPanel buildBookingTab(Runnable[] refreshers) {
-        DefaultTableModel model = createBookingModel();
-        JTable table = new JTable(model);
-        styleTable(table);
-        fitColumns(table);
-
-        TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(model);
-        table.setRowSorter(sorter);
-
-        JTextField searchField = createTextField("");
-        searchField.setColumns(18);
-        JComboBox<String> statusBox = createComboBox(
-                new String[]{ALL, QueueManager.WAIT, QueueManager.DONE, QueueManager.CANCEL});
-        statusBox.setPreferredSize(new Dimension(150, 36));
-        JLabel countLabel = createLabel(" ", 13f, Font.PLAIN, MUTED);
-
-        // ใช้ตัวกรอง (ค้นหา + สถานะ) แล้วอัปเดตจำนวนแถวที่แสดง
-        Runnable applyFilter = () -> {
-            String status = (String) statusBox.getSelectedItem();
-            String keyword = searchField.getText().trim().toLowerCase();
-            sorter.setRowFilter(createBookingFilter(status, keyword));
-            countLabel.setText("แสดง " + table.getRowCount() + " จาก " + model.getRowCount() + " รายการ");
-        };
-
-        // โหลดข้อมูลจาก QueueManager ใหม่ แล้วใช้ตัวกรองซ้ำ
-        Runnable refresh = () -> {
-            loadRows(model, qm.all());
-            applyFilter.run();
-        };
-        refreshers[0] = refresh;
-
-        onTextChange(searchField, applyFilter);
-        statusBox.addActionListener(e -> applyFilter.run());
-
-        // แถวบน: ช่องค้นหา + ตัวกรองสถานะ + จำนวนรายการ
-        JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        filters.setOpaque(false);
-        filters.add(createLabel("ค้นหา", 13f, Font.PLAIN, MUTED));
-        filters.add(searchField);
-        filters.add(createLabel("สถานะ", 13f, Font.PLAIN, MUTED));
-        filters.add(statusBox);
-
-        JPanel top = new JPanel(new BorderLayout());
-        top.setOpaque(false);
-        top.add(filters, BorderLayout.WEST);
-        top.add(countLabel, BorderLayout.EAST);
-
-        // แถวล่าง: ปุ่มจัดการ
-        JButton reloadButton = new RoundButton("รีเฟรช", MUTED);
-        JButton doneButton = new RoundButton("เสร็จสิ้น", GREEN);
-        JButton cancelButton = new RoundButton("ยกเลิก", AMBER);
-        JButton deleteButton = new RoundButton("ลบ", RED);
-
-        reloadButton.addActionListener(e -> refresh.run());
-        doneButton.addActionListener(e -> changeStatus(table, model, QueueManager.DONE, refresh));
-        cancelButton.addActionListener(e -> changeStatus(table, model, QueueManager.CANCEL, refresh));
-        deleteButton.addActionListener(e -> deleteSelected(table, model, refresh));
-
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        buttons.setOpaque(false);
-        buttons.add(reloadButton);
-        buttons.add(doneButton);
-        buttons.add(cancelButton);
-        buttons.add(deleteButton);
-
-        Card card = new Card(new BorderLayout(0, 12));
-        card.add(top, BorderLayout.NORTH);
-        card.add(createScrollPane(table), BorderLayout.CENTER);
-        card.add(buttons, BorderLayout.SOUTH);
-
-        refresh.run();
-        return createPage(card);
-    }
-
-    /** ตัวกรองแถว: สถานะต้องตรง และคำค้นต้องอยู่ในคอลัมน์ ชื่อ/โทร/ทะเบียน/ประเภทรถ/บริการ */
-    private RowFilter<DefaultTableModel, Integer> createBookingFilter(String status, String keyword) {
-        return new RowFilter<DefaultTableModel, Integer>() {
-            @Override public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> row) {
-                boolean statusMatches = ALL.equals(status) || row.getStringValue(COL_STATUS).equals(status);
-                if (!statusMatches) return false;
-                if (keyword.isEmpty()) return true;
-
-                for (int col = COL_NAME; col <= 5; col++) {
-                    if (row.getStringValue(col).toLowerCase().contains(keyword)) return true;
-                }
-                return false;
-            }
-        };
-    }
-
-    private void changeStatus(JTable table, DefaultTableModel model, String newStatus, Runnable refresh) {
-        Integer id = selectedBookingId(table, model);
-        if (id == null) return;
-
-        try {
-            qm.setStatus(id, newStatus);
-            refresh.run();
-        } catch (RuntimeException ex) {
-            showWarning(ex.getMessage());
-        }
-    }
-
-    private void deleteSelected(JTable table, DefaultTableModel model, Runnable refresh) {
-        Integer id = selectedBookingId(table, model);
-        if (id == null) return;
-        if (!confirm("ลบรายการนี้ถาวร?")) return;
-
-        try {
-            qm.delete(id);
-            refresh.run();
-        } catch (RuntimeException ex) {
-            showWarning(ex.getMessage());
-        }
-    }
-
-    // ---------- แท็บ 2: สรุปรายได้ ----------
-
-    /** เลือกวันที่ แล้วแสดงการ์ดสถิติ 4 ใบ */
-    private JPanel buildIncomeTab(Runnable[] refreshers) {
-        JTextField dayField = createTextField(LocalDate.now().toString());
-        dayField.setColumns(10);
-
-        JPanel stats = new JPanel(new GridLayout(1, 4, 16, 0));
-        stats.setOpaque(false);
-        JLabel doneCountLabel = addStatCard(stats, "คันที่ล้างเสร็จ (วันที่เลือก)", BLUE);
-        JLabel dayIncomeLabel = addStatCard(stats, "รายได้ (วันที่เลือก)", GREEN);
-        JLabel totalIncomeLabel = addStatCard(stats, "รายได้รวมทั้งหมด", NAVY);
-        JLabel waitingLabel = addStatCard(stats, "คิวรอดำเนินการทั้งหมด", AMBER);
-
-        Runnable refresh = () -> {
-            String day = dayField.getText().trim();
-            long waiting = qm.all().stream().filter(b -> b.status.equals(QueueManager.WAIT)).count();
-
-            doneCountLabel.setText(qm.countDoneOn(day) + " คัน");
-            dayIncomeLabel.setText(String.format("%,d บาท", qm.incomeOn(day)));
-            totalIncomeLabel.setText(String.format("%,d บาท", qm.incomeTotal()));
-            waitingLabel.setText(waiting + " คิว");
-        };
-        refreshers[1] = refresh;
-        onTextChange(dayField, refresh);
-        refresh.run();
-
-        JPanel picker = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        picker.setOpaque(false);
-        picker.add(createLabel("เลือกวันที่ (yyyy-MM-dd)", 14f, Font.PLAIN, MUTED));
-        picker.add(createDateField(dayField));
-
-        Card pickerCard = new Card(new BorderLayout());
-        pickerCard.add(picker, BorderLayout.CENTER);
-
-        JPanel statsHolder = new JPanel(new BorderLayout());
-        statsHolder.setOpaque(false);
-        statsHolder.add(stats, BorderLayout.NORTH);
-
-        JPanel content = new JPanel(new BorderLayout(0, 16));
-        content.setOpaque(false);
-        content.add(pickerCard, BorderLayout.NORTH);
-        content.add(statsHolder, BorderLayout.CENTER);
-        return createPage(content);
-    }
-
-    /** สร้างการ์ดสถิติ 1 ใบแล้วเพิ่มลง parent คืน label ที่ไว้แสดงตัวเลข */
-    private static JLabel addStatCard(JPanel parent, String title, Color accent) {
-        JLabel valueLabel = createLabel("-", 26f, Font.BOLD, accent);
-
-        Card card = new Card(new BorderLayout(0, 8));
-        card.add(createLabel(title, 13f, Font.PLAIN, MUTED), BorderLayout.NORTH);
-        card.add(valueLabel, BorderLayout.CENTER);
-
-        parent.add(card);
-        return valueLabel;
-    }
-
-    // ---------- แท็บ 3: ตั้งราคา ----------
-
-    /** ตารางแก้ราคาพื้นฐานของแต่ละบริการ แล้วกดบันทึก */
-    private JPanel buildPriceTab() {
-        final int PRICE_COLUMN = 1;
-
-        DefaultTableModel priceModel = new DefaultTableModel(
-                new String[]{"บริการ", "ราคาพื้นฐาน (รถเก๋ง)"}, 0) {
-            @Override public boolean isCellEditable(int row, int column) {
-                return column == PRICE_COLUMN; // แก้ได้เฉพาะช่องราคา
-            }
-        };
-        for (String service : qm.names()) {
-            priceModel.addRow(new Object[]{service, qm.basePrice(service)});
-        }
-
-        JTable priceTable = new JTable(priceModel);
-        styleTable(priceTable);
-
-        JButton saveButton = new RoundButton("บันทึกราคา", BLUE);
-        saveButton.addActionListener(e -> savePrices(priceTable, priceModel, PRICE_COLUMN));
-
-        VerticalStack head = new VerticalStack(0);
-        head.put(createLabel("ตั้งราคาบริการ", 18f, Font.BOLD, TEXT));
-        head.put(createLabel("ดับเบิลคลิกที่ช่องราคาเพื่อแก้ไข แล้วกดบันทึก", 13f, Font.PLAIN, MUTED));
-
-        JPanel footer = new JPanel(new BorderLayout(0, 12));
-        footer.setOpaque(false);
-        footer.add(createLabel(describeMultipliers(), 12f, Font.PLAIN, MUTED), BorderLayout.NORTH);
-        footer.add(rightAligned(saveButton), BorderLayout.SOUTH);
-
-        Card card = new Card(new BorderLayout(0, 4));
-        card.add(head, BorderLayout.NORTH);
-        card.add(createScrollPane(priceTable), BorderLayout.CENTER);
-        card.add(footer, BorderLayout.SOUTH);
-        return createPage(card);
-    }
-
-    /** ข้อความสรุปตัวคูณราคาตามประเภทรถ เช่น "เก๋ง ×1.0 | SUV ×1.3" */
-    private static String describeMultipliers() {
-        StringBuilder text = new StringBuilder("ตัวคูณตามประเภทรถ:  ");
-        for (int i = 0; i < QueueManager.CARS.length; i++) {
-            if (i > 0) text.append("   |   ");
-            text.append(QueueManager.CARS[i]).append(" ×").append(QueueManager.MULT[i]);
-        }
-        return text.toString();
-    }
-
-    private void savePrices(JTable priceTable, DefaultTableModel priceModel, int priceColumn) {
-        // ถ้ายังพิมพ์ค้างอยู่ในช่อง ให้ยืนยันค่านั้นก่อน
-        if (priceTable.isEditing()) priceTable.getCellEditor().stopCellEditing();
-
-        try {
-            for (int row = 0; row < priceModel.getRowCount(); row++) {
-                String service = (String) priceModel.getValueAt(row, 0);
-                int price = Integer.parseInt(priceModel.getValueAt(row, priceColumn).toString().trim());
-                qm.setPrice(service, price);
-            }
-            qm.savePrices();
-            showInfo("บันทึกราคาแล้ว (ลูกค้าจะเห็นราคาใหม่เมื่อเข้าสู่ระบบครั้งถัดไป)");
-        } catch (IllegalArgumentException ex) {
-            showWarning("ราคาต้องเป็นตัวเลขจำนวนเต็มไม่ติดลบ"); // พิมพ์ไม่ใช่ตัวเลข
-        } catch (IllegalStateException ex) {
-            showWarning(ex.getMessage());
         }
     }
 }
