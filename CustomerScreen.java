@@ -11,6 +11,10 @@ import javax.swing.*;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
+import javax.swing.text.AbstractDocument;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumnModel;
 
@@ -24,7 +28,8 @@ public class CustomerScreen {
     private final String customerPhone;
 
     // ช่องในฟอร์มจอง
-    private final JTextField plateField = CarWashUI.createTextField("");
+    private final JTextField plateLetterField = CarWashUI.createTextField("");   // หมวดอักษร เช่น กท, 1กข
+    private final JTextField plateNumberField = CarWashUI.createTextField("");   // เลขทะเบียน 1-4 หลัก
     private final JTextField dateField = CarWashUI.createTextField(LocalDate.now().toString());
     private final JComboBox<String> carTypeBox = CarWashUI.createComboBox(QueueManager.CARS);
     private final JComboBox<String> serviceBox;
@@ -85,7 +90,7 @@ public class CustomerScreen {
 
         CarWashUI.VerticalStack fields = new CarWashUI.VerticalStack(300);
         fields.put(CarWashUI.createLabel("จองคิวล้างรถ", 20f, Font.BOLD, CarWashUI.TEXT));
-        fields.put(CarWashUI.withCaption("ทะเบียนรถ", plateField));
+        fields.put(buildPlateInput());
         fields.put(CarWashUI.withCaption("ประเภทรถ", carTypeBox));
         fields.put(CarWashUI.withCaption("บริการ", serviceBox));
         fields.put(CarWashUI.withCaption("วันที่ (yyyy-MM-dd)", CarWashUI.createDateField(dateField)));
@@ -96,6 +101,53 @@ public class CustomerScreen {
         CarWashUI.Card card = new CarWashUI.Card(new BorderLayout());
         card.add(fields, BorderLayout.NORTH);
         return card;
+    }
+
+    /** ช่องกรอกทะเบียนรถ แยกเป็น "อักษร" และ "เลขทะเบียน" */
+    private JPanel buildPlateInput() {
+        ((AbstractDocument) plateLetterField.getDocument())
+                .setDocumentFilter(new LimitFilter("[ก-ฮ0-9]*", 3));
+        ((AbstractDocument) plateNumberField.getDocument())
+                .setDocumentFilter(new LimitFilter("\\d*", 4));
+        plateLetterField.setHorizontalAlignment(JTextField.CENTER);
+        plateNumberField.setHorizontalAlignment(JTextField.CENTER);
+        plateLetterField.addActionListener(e -> plateNumberField.requestFocusInWindow());
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridy = 0;
+
+        JPanel row = new JPanel(new GridBagLayout());
+        row.setOpaque(false);
+
+        c.gridx = 0; c.weightx = 1; c.insets = new Insets(0, 0, 0, 8);
+        row.add(CarWashUI.withCaption("อักษร (เช่น กท)", plateLetterField), c);
+        c.gridx = 1; c.weightx = 1.4; c.insets = new Insets(0, 0, 0, 0);
+        row.add(CarWashUI.withCaption("เลขทะเบียน (เช่น 2455)", plateNumberField), c);
+        return row;
+    }
+
+    /** จำกัดตัวอักษรที่พิมพ์ได้ตาม regex และจำกัดความยาวสูงสุด */
+    private static class LimitFilter extends DocumentFilter {
+        private final String regex;
+        private final int max;
+
+        LimitFilter(String regex, int max) { this.regex = regex; this.max = max; }
+
+        @Override public void insertString(FilterBypass fb, int offset, String text, AttributeSet attr)
+                throws BadLocationException {
+            replace(fb, offset, 0, text, attr);
+        }
+
+        @Override public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attr)
+                throws BadLocationException {
+            if (text == null) text = "";
+            String current = fb.getDocument().getText(0, fb.getDocument().getLength());
+            String result = current.substring(0, offset) + text + current.substring(offset + length);
+            if (result.length() <= max && result.matches(regex)) {
+                super.replace(fb, offset, length, text, attr);
+            }
+        }
     }
 
     private JPanel buildPriceBox() {
@@ -116,11 +168,21 @@ public class CustomerScreen {
     }
 
     private void submitBooking() {
+        String letters = plateLetterField.getText().trim();
+        String number = plateNumberField.getText().trim();
+        if (letters.isEmpty() || number.isEmpty()) {
+            ui.showWarning("กรุณากรอกทะเบียนรถให้ครบ ทั้งอักษรและเลขทะเบียน");
+            return;
+        }
+        String plate = letters + " " + number;
+
         try {
-            CUSTOMER booking = qm.book(customerName, customerPhone, plateField.getText(),
+            CUSTOMER booking = qm.book(customerName, customerPhone, plate,
                     carTypeBox.getSelectedIndex(), (String) serviceBox.getSelectedItem(),
                     dateField.getText(), (String) slotBox.getSelectedItem());
 
+            plateLetterField.setText("");
+            plateNumberField.setText("");
             refreshBookings();
             ui.showInfo("จองสำเร็จ\nรหัสการจอง " + booking.id + "\n"
                     + booking.date + " เวลา " + booking.time + "  ราคา " + booking.price + " บาท");
