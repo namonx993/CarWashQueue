@@ -28,3 +28,21 @@ public class CUSTOMER {
         return new Object[]{id, name, phone, plate, car, service, date, time, price, status};
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
